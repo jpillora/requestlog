@@ -15,6 +15,18 @@ h := http.Handler(...)
 h = requestlog.Wrap(h)
 ```
 
+And you'll see something like:
+
+```
+2015/07/08 21:43:03.063 GET /a 200 90ms 912B
+2015/07/08 21:43:03.148 GET /b 200 80ms 320B
+2015/07/08 21:43:03.242 GET /c 200 90ms 116B
+2015/07/08 21:43:03.320 GET /d 200 73ms 2B
+2015/07/08 21:43:03.399 GET /e 200 74ms 2B
+2015/07/08 21:43:03.476 GET /f 200 72ms 2B
+2015/07/08 21:43:03.558 GET /g 200 77ms 2B
+```
+
 #### MIT License
 
 Copyright © 2015 Jaime Pillora &lt;dev@jpillora.com&gt;
