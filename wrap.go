@@ -4,11 +4,25 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"text/template"
+	"time"
 
 	"github.com/andrew-d/go-termutil"
+	"github.com/jpillora/ansi"
 	"github.com/jpillora/sizestr"
 )
+
+func init() {
+	sizestr.LowerCase()
+}
+
+type Colors struct {
+	Grey, Green, Cyan, Yellow, Red, Reset string
+}
+
+var basicColors = &Colors{string(ansi.BlackBytes), string(ansi.GreenBytes), string(ansi.CyanBytes), string(ansi.YellowBytes), string(ansi.YellowBytes), string(ansi.ResetBytes)}
+var noColors = &Colors{} //no colors
 
 type Options struct {
 	Writer     io.Writer
@@ -18,40 +32,56 @@ type Options struct {
 	Colors     *Colors
 }
 
-var defaultOptions = Options{
+var DefaultOptions = Options{
 	Writer:     os.Stdout,
 	TimeFormat: "2006/01/02 15:04:05.000",
 	Format: `{{ .Grey }}{{ if .Timestamp }}{{ .Timestamp }} {{end}}` +
 		`{{ .Method }} {{ .Path }} {{ .CodeColor }}{{ .Code }}{{ .Grey }} ` +
 		`{{ .Duration }}{{ if .Size }} {{ .Size }}{{end}}` +
 		`{{ if .IP }} ({{ .IP }}){{end}}{{ .Reset }}` + "\n",
-	Colors: nil,
+	Colors: defaultColors(),
 }
 
-var isInteractive = termutil.Isatty(os.Stdout.Fd())
-
-func init() {
+func defaultColors() *Colors {
 	sizestr.ToggleCase()
-	if isInteractive {
-		defaultOptions.Colors = defaultColors
+	if termutil.Isatty(os.Stdout.Fd()) {
+		return basicColors
 	} else {
-		defaultOptions.Colors = noColors
+		return noColors
 	}
 }
 
 func Wrap(next http.Handler) http.Handler {
-	return WrapWith(next, &defaultOptions)
+	return WrapWith(next, Options{})
 }
 
-func WrapWith(next http.Handler, opts *Options) http.Handler {
+func WrapWith(next http.Handler, opts Options) http.Handler {
+	if opts.Writer == nil {
+		opts.Writer = DefaultOptions.Writer
+	}
+	if opts.TimeFormat == "" {
+		opts.TimeFormat = DefaultOptions.TimeFormat
+	}
+	if opts.Format == "" {
+		opts.Format = DefaultOptions.Format
+	}
+	if opts.Colors == nil {
+		opts.Colors = DefaultOptions.Colors
+	}
 	var err error
 	opts.formatTmpl, err = template.New("format").Parse(opts.Format)
 	if err != nil {
 		panic(err)
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		m := monitorWriter(w, r, opts)
+		m := monitorWriter(w, r, &opts)
 		next.ServeHTTP(m, r)
 		m.Log()
 	})
+}
+
+var fmtDurationRe = regexp.MustCompile(`\.\d+`)
+
+func fmtDuration(t time.Duration) string {
+	return fmtDurationRe.ReplaceAllString(t.String(), "")
 }

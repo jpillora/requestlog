@@ -63,10 +63,7 @@ func (m *monitorableWriter) Log() {
 	if m.Code == 0 {
 		m.Code = 200
 	}
-	cc := ""
-	if isInteractive {
-		cc = colorcode(m.Code)
-	}
+	cc := m.colorCode()
 	size := ""
 	if m.Size > 0 {
 		size = sizestr.ToString(m.Size)
@@ -81,8 +78,22 @@ func (m *monitorableWriter) Log() {
 		m.opts.Colors,
 		m.t0.Format(m.opts.TimeFormat), m.method, m.path, cc,
 		m.Code,
-		fmtduration(now.Sub(m.t0)), size, m.ip,
+		fmtDuration(now.Sub(m.t0)), size, m.ip,
 	})
 	//fmt is threadsafe :)
 	fmt.Fprint(m.opts.Writer, buff.String())
+}
+
+func (m *monitorableWriter) colorCode() string {
+	switch m.Code / 100 {
+	case 2:
+		return m.opts.Colors.Green
+	case 3:
+		return m.opts.Colors.Cyan
+	case 4:
+		return m.opts.Colors.Yellow
+	case 5:
+		return m.opts.Colors.Red
+	}
+	return m.opts.Colors.Grey
 }
