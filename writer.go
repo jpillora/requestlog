@@ -1,6 +1,7 @@
 package requestlog
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"net"
@@ -53,6 +54,14 @@ func (m *monitorableWriter) Write(p []byte) (int, error) {
 func (m *monitorableWriter) WriteHeader(c int) {
 	m.Code = c
 	m.w.WriteHeader(c)
+}
+
+func (m *monitorableWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hj, ok := m.w.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("hijacking not supported")
+	}
+	return hj.Hijack()
 }
 
 var integerRegexp = regexp.MustCompile(`\.\d+`)
