@@ -24,6 +24,7 @@ func monitorWriter(w http.ResponseWriter, r *http.Request, opts *Options) *monit
 		opts:   opts,
 		t0:     time.Now(),
 		w:      w,
+		r:      r,
 		method: r.Method,
 		path:   r.URL.Path,
 		ip:     ip,
@@ -36,6 +37,7 @@ type monitorableWriter struct {
 	t0   time.Time
 	//handler
 	w http.ResponseWriter
+	r *http.Request
 	//stats
 	method, path, ip string
 	Code             int
@@ -76,9 +78,12 @@ var integerRegexp = regexp.MustCompile(`\.\d+`)
 
 //replace ResponseWriter with a monitorable one, return logger
 func (m *monitorableWriter) Log() {
-	now := time.Now()
+	duration := time.Now().Sub(m.t0)
 	if m.Code == 0 {
 		m.Code = 200
+	}
+	if m.opts.Filter != nil && !m.opts.Filter(m.r, m.Code, duration, m.Size) {
+		return //skip
 	}
 	cc := m.colorCode()
 	size := ""
@@ -95,7 +100,7 @@ func (m *monitorableWriter) Log() {
 		m.opts.Colors,
 		m.t0.Format(m.opts.TimeFormat), m.method, m.path, cc,
 		m.Code,
-		fmtDuration(now.Sub(m.t0)), size, m.ip,
+		fmtDuration(duration), size, m.ip,
 	})
 	//fmt is threadsafe :)
 	fmt.Fprint(m.opts.Writer, buff.String())

@@ -30,7 +30,7 @@ type Options struct {
 	Format     string
 	formatTmpl *template.Template
 	Colors     *Colors
-	Filter     func(*http.Request) bool
+	Filter     func(r *http.Request, code int, duration time.Duration, size int64) bool
 }
 
 var DefaultOptions = Options{
@@ -75,13 +75,9 @@ func WrapWith(next http.Handler, opts Options) http.Handler {
 		panic(err)
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if opts.Filter == nil || opts.Filter(r) {
-			m := monitorWriter(w, r, &opts)
-			next.ServeHTTP(m, r)
-			m.Log()
-		} else {
-			next.ServeHTTP(w, r)
-		}
+		m := monitorWriter(w, r, &opts)
+		next.ServeHTTP(m, r)
+		m.Log()
 	})
 }
 
