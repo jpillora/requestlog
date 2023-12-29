@@ -21,7 +21,7 @@ func TestOut(t *testing.T) {
 
 	b := bytes.Buffer{}
 
-	wrap := requestlog.Wrap(h, requestlog.Options{
+	wrap := requestlog.New(h, requestlog.Options{
 		Logger: jplog.New(&b),
 	})
 

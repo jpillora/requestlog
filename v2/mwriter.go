@@ -115,11 +115,7 @@ func (m *monitorableWriter) levelStatus() logFn {
 	switch m.Code / 100 {
 	case 2:
 		return m.l.Logger.Info
-	case 3:
-		return m.l.Logger.Warn
-	case 4:
-		return m.l.Logger.Error
-	case 5:
+	case 4, 5:
 		return m.l.Logger.Error
 	}
 	return m.l.Logger.Warn

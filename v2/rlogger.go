@@ -16,12 +16,17 @@ type Options struct {
 	TrustProxy bool //TrustProxy will log X-Forwarded-For/X-Real-Ip instead of the IP source
 }
 
-func Wrap(next http.Handler, opts ...Options) http.Handler {
+func New(next http.Handler, opts ...Options) http.Handler {
 	o := Options{}
 	if len(opts) > 0 {
 		o = opts[0]
 	}
 	return newRequestLogger(next, o)
+}
+
+// Wrap is an alias for New(next) with default options
+func Wrap(next http.Handler) http.Handler {
+	return New(next)
 }
 
 type rlogger struct {

@@ -1,8 +1,8 @@
 module github.com/jpillora/requestlog/v2
 
-go 1.21.0
+go 1.21.5
 
-replace github.com/jpillora/jplog => ../../jplog
+// replace github.com/jpillora/jplog => ../../jplog
 
 require (
 	github.com/jpillora/jplog v1.0.2
