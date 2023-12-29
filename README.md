@@ -5,7 +5,7 @@ Simple request logging in Go (Golang)
 ### Install
 
 ``` sh
-$ go get -v github.com/jpillora/requestlog
+$ go get -v github.com/jpillora/requestlog/v2
 ```
 
 ### Usage
