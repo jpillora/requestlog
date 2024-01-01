@@ -2,7 +2,6 @@ package requestlog
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"net"
 	"net/http"
@@ -13,16 +12,16 @@ import (
 	"github.com/tomasen/realip"
 )
 
-func monitorWriter(w http.ResponseWriter, r *http.Request, opts *Options) *monitorableWriter {
+func (l *rlogger) monitorWriter(w http.ResponseWriter, r *http.Request) *monitorableWriter {
 	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-	if opts.TrustProxy {
+	if l.Options.TrustProxy {
 		ip = realip.FromRequest(r)
 	}
 	if ip == "127.0.0.1" || ip == "::1" {
 		ip = "" //dont show localhost ips
 	}
 	return &monitorableWriter{
-		opts:   opts,
+		l:      l,
 		t0:     time.Now(),
 		w:      w,
 		r:      r,
@@ -32,10 +31,10 @@ func monitorWriter(w http.ResponseWriter, r *http.Request, opts *Options) *monit
 	}
 }
 
-//monitorable ResponseWriter
+// monitorable ResponseWriter
 type monitorableWriter struct {
-	opts *Options
-	t0   time.Time
+	l  *rlogger
+	t0 time.Time
 	//handler
 	w http.ResponseWriter
 	r *http.Request
@@ -77,46 +76,53 @@ func (m *monitorableWriter) CloseNotify() <-chan bool {
 
 var integerRegexp = regexp.MustCompile(`\.\d+`)
 
-//replace ResponseWriter with a monitorable one, return logger
-func (m *monitorableWriter) Log() {
+// replace ResponseWriter with a monitorable one, return logger
+func (m *monitorableWriter) done() {
 	duration := time.Now().Sub(m.t0)
 	if m.Code == 0 {
 		m.Code = 200
 	}
-	if m.opts.Filter != nil && !m.opts.Filter(m.r, m.Code, duration, m.Size) {
+	if m.l.Options.Filter != nil && !m.l.Options.Filter(m.r, m.Code, duration, m.Size) {
 		return //skip
 	}
-	cc := m.colorCode()
-	size := ""
-	if m.Size > 0 {
-		size = sizestr.ToString(m.Size)
+	args := []any{
+		"method", m.method,
+		"path", m.path,
+		"code", m.Code,
 	}
-	buff := bytes.Buffer{}
-	m.opts.formatTmpl.Execute(&buff, &struct {
-		*Colors
-		Timestamp, Method, Path, CodeColor string
-		Code                               int
-		Duration, Size, IP                 string
-	}{
-		m.opts.Colors,
-		m.t0.Format(m.opts.TimeFormat), m.method, m.path, cc,
-		m.Code,
-		fmtDuration(duration), size, m.ip,
-	})
-	//fmt is threadsafe :)
-	fmt.Fprint(m.opts.Writer, buff.String())
+	if m.l.isJSON() {
+		args = append(args, "duration", duration.Microseconds())
+	} else {
+		args = append(args, "duration", fmtDuration(duration))
+	}
+	if m.Size > 0 {
+		if m.l.isJSON() {
+			args = append(args, "size", m.Size)
+		} else {
+			args = append(args, "size", sizestr.ToString(m.Size))
+		}
+	}
+	if m.ip != "" {
+		args = append(args, "ip", m.ip)
+	}
+	log := m.levelStatus()
+	log(http.StatusText(m.Code), args...)
 }
 
-func (m *monitorableWriter) colorCode() string {
+type logFn func(msg string, args ...any)
+
+func (m *monitorableWriter) levelStatus() logFn {
 	switch m.Code / 100 {
 	case 2:
-		return m.opts.Colors.Green
-	case 3:
-		return m.opts.Colors.Cyan
-	case 4:
-		return m.opts.Colors.Yellow
-	case 5:
-		return m.opts.Colors.Red
+		return m.l.Logger.Info
+	case 4, 5:
+		return m.l.Logger.Error
 	}
-	return m.opts.Colors.Grey
+	return m.l.Logger.Warn
+}
+
+var fmtDurationRe = regexp.MustCompile(`\.\d+`)
+
+func fmtDuration(t time.Duration) string {
+	return fmtDurationRe.ReplaceAllString(t.String(), "")
 }
