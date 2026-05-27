@@ -112,10 +112,12 @@ func (m *monitorableWriter) done() {
 type logFn func(msg string, args ...any)
 
 func (m *monitorableWriter) levelStatus() logFn {
-	switch m.Code / 100 {
-	case 2:
+	switch {
+	case m.Code == http.StatusNotFound:
+		return m.l.Logger.Warn
+	case m.Code/100 == 2:
 		return m.l.Logger.Info
-	case 4, 5:
+	case m.Code/100 == 4 || m.Code/100 == 5:
 		return m.l.Logger.Error
 	}
 	return m.l.Logger.Warn
