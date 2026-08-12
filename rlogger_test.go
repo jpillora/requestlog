@@ -37,3 +37,27 @@ var ansire = regexp.MustCompile("[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*
 func stripAnsi(str string) string {
 	return ansire.ReplaceAllString(str, "")
 }
+
+func TestStatusLevels(t *testing.T) {
+	for _, c := range []struct {
+		code  int
+		level string
+	}{
+		{http.StatusOK, "INFO"},
+		{http.StatusNotModified, "INFO"},
+		{http.StatusMovedPermanently, "INFO"},
+		{http.StatusNotFound, "WARN"},
+		{http.StatusForbidden, "ERRO"},
+		{http.StatusInternalServerError, "ERRO"},
+	} {
+		req, _ := http.NewRequest("GET", "http://example.com/foo", nil)
+		w := httptest.NewRecorder()
+		h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(c.code)
+		})
+		b := bytes.Buffer{}
+		New(h, Options{Logger: jplog.New(&b)}).ServeHTTP(w, req)
+		out := stripAnsi(b.String())
+		require.Contains(t, out, c.level, "status %d should log at %s, got: %s", c.code, c.level, out)
+	}
+}

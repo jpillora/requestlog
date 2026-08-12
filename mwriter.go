@@ -115,7 +115,10 @@ func (m *monitorableWriter) levelStatus() logFn {
 	switch {
 	case m.Code == http.StatusNotFound:
 		return m.l.Logger.Warn
-	case m.Code/100 == 2:
+	// 1xx/2xx/3xx are all normal outcomes. 3xx especially: a cache-revalidating
+	// client turns every asset request into a 304, so levelling those as
+	// warnings buries real ones under "Not Modified".
+	case m.Code/100 == 1 || m.Code/100 == 2 || m.Code/100 == 3:
 		return m.l.Logger.Info
 	case m.Code/100 == 4 || m.Code/100 == 5:
 		return m.l.Logger.Error
