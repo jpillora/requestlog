@@ -58,6 +58,15 @@ func (m *monitorableWriter) WriteHeader(c int) {
 	m.w.WriteHeader(c)
 }
 
+// Unwrap exposes the wrapped ResponseWriter to http.ResponseController, so
+// read/write deadlines and the rest of its controls reach the server through
+// this layer. Without it every control returns http.ErrNotSupported, and a
+// handler that relies on a write deadline to bound a slow client silently
+// loses it.
+func (m *monitorableWriter) Unwrap() http.ResponseWriter {
+	return m.w
+}
+
 func (m *monitorableWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	hj, ok := m.w.(http.Hijacker)
 	if !ok {
